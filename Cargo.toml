@@ -1,6 +1,7 @@
 [package]
 name = "isolated-burn-problem"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 burn = { version = "0.18", default-features = false, features = ["std", "ndarray", "wgpu", "tch"]}
