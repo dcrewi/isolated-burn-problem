@@ -1,9 +1,7 @@
-use burn::backend::{LibTorch, NdArray, Wgpu};
+#[cfg(test)] use burn::backend::{LibTorch, NdArray, Wgpu};
 use burn::nn::conv::{Conv2d, Conv2dConfig};
 use burn::nn::{LeakyRelu, LeakyReluConfig, PaddingConfig2d};
 use burn::prelude::*;
-use burn::record::{BinBytesRecorder, FullPrecisionSettings, Recorder};
-use burn::tensor::Distribution;
 
 
 /// Construct a standard 3x3 Conv2dConfig
@@ -71,7 +69,14 @@ impl<B: Backend> ResidualDenseBlock<B> {
 }
 
 
+#[cfg(test)]
 fn compare_backends<Reference: Backend, Tested: Backend>() {
+    use burn::record::{BinBytesRecorder, FullPrecisionSettings, Recorder};
+    use burn::tensor::Distribution;
+
+    // be reproducible
+    Reference::seed(0xd14bccffe1928d68);
+
     let config = ResidualDenseBlockConfig::new(4, 4);
     let ref_device = <Reference as Backend>::Device::default();
     let ref_module = config.init::<Reference>(&ref_device);
