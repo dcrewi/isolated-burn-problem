@@ -55,7 +55,8 @@ fn compare_backends<Reference: Backend, Tested: Backend>() {
     // be reproducible
     Reference::seed(0xd14bccffe1928888);
 
-    let config = SimplifiedBlockConfig::new(4);
+    const NF: usize = 3;
+    let config = SimplifiedBlockConfig::new(NF);
     let ref_device = <Reference as Backend>::Device::default();
     let ref_module = config.init::<Reference>(&ref_device);
     let test_device = <Tested as Backend>::Device::default();
@@ -68,7 +69,7 @@ fn compare_backends<Reference: Backend, Tested: Backend>() {
     let test_module = test_module.load_record(record);
 
     // generate random input and run it through ref_module
-    let ref_input = Tensor::<Reference, 4>::random([2, 4, 3, 3], Distribution::Uniform(-1.0, 1.0), &ref_device);
+    let ref_input = Tensor::<Reference, 4>::random([2, NF, 2, 2], Distribution::Uniform(-1.0, 1.0), &ref_device);
     let ref_output = ref_module.forward(ref_input.clone());
 
     // copy input to the test backend and run it through test_module
