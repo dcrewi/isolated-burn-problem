@@ -29,10 +29,7 @@ impl ResidualDenseBlockConfig {
         let &ResidualDenseBlockConfig { nf, gc } = self;
         ResidualDenseBlock {
             conv1: std_conv2d(nf, gc).init(device),
-            conv2: std_conv2d(nf + 1 * gc, gc).init(device),
-            conv3: std_conv2d(nf + 2 * gc, gc).init(device),
-            conv4: std_conv2d(nf + 3 * gc, gc).init(device),
-            conv5: std_conv2d(nf + 4 * gc, nf).init(device),
+            conv2: std_conv2d(nf + gc, nf).init(device),
             lrelu: LeakyReluConfig::new().with_negative_slope(0.2).init()
         }
     }
@@ -46,9 +43,6 @@ impl ResidualDenseBlockConfig {
 pub struct ResidualDenseBlock<B: Backend> {
     pub conv1: Conv2d<B>,
     pub conv2: Conv2d<B>,
-    pub conv3: Conv2d<B>,
-    pub conv4: Conv2d<B>,
-    pub conv5: Conv2d<B>,
     pub lrelu: LeakyRelu
 }
 
@@ -57,14 +51,8 @@ impl<B: Backend> ResidualDenseBlock<B> {
         let x0 = x;
         let x1 = self.lrelu.forward(self.conv1.forward(x0.clone()));
         let x0x1 = Tensor::cat(vec![x0.clone(), x1], 1);
-        let x2 = self.lrelu.forward(self.conv2.forward(x0x1.clone()));
-        let x0x1x2 = Tensor::cat(vec![x0x1, x2], 1);
-        let x3 = self.lrelu.forward(self.conv3.forward(x0x1x2.clone()));
-        let x0x1x2x3 = Tensor::cat(vec![x0x1x2, x3], 1);
-        let x4 = self.lrelu.forward(self.conv4.forward(x0x1x2x3.clone()));
-        let x0x1x2x3x4 = Tensor::cat(vec![x0x1x2x3, x4], 1);
-        let x5 = self.conv5.forward(x0x1x2x3x4);
-        x5 * 0.2 + x0
+        let x2 = self.conv2.forward(x0x1);
+        x2 * 0.2 + x0
     }
 }
 
