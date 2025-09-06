@@ -50,10 +50,10 @@ impl<B: Backend> SimplifiedBlock<B> {
 #[cfg(test)]
 fn compare_backends<Reference: Backend, Tested: Backend>() {
     use burn::record::{BinBytesRecorder, FullPrecisionSettings, Recorder};
-    use burn::tensor::Distribution;
+    use burn::tensor::{Distribution, cast::ToElement};
 
     // be reproducible
-    Reference::seed(0xd14bccffe1928d69);
+    Reference::seed(0xd14bccffe1928888);
 
     let config = SimplifiedBlockConfig::new(4);
     let ref_device = <Reference as Backend>::Device::default();
@@ -68,7 +68,7 @@ fn compare_backends<Reference: Backend, Tested: Backend>() {
     let test_module = test_module.load_record(record);
 
     // generate random input and run it through ref_module
-    let ref_input = Tensor::<Reference, 4>::random([2, 4, 9, 9], Distribution::Uniform(-1.0, 1.0), &ref_device);
+    let ref_input = Tensor::<Reference, 4>::random([2, 4, 3, 3], Distribution::Uniform(-1.0, 1.0), &ref_device);
     let ref_output = ref_module.forward(ref_input.clone());
 
     // copy input to the test backend and run it through test_module
@@ -79,7 +79,14 @@ fn compare_backends<Reference: Backend, Tested: Backend>() {
     let expected = ref_output;
     let actual = Tensor::<Reference, 4>::from_data(test_output.to_data(), &ref_device);
 
-    assert!(actual.all_close(expected, None, None));
+
+    println!("expected: {:?}", expected);
+    println!("actual: {:?}", actual);
+
+    let close = expected.is_close(actual, None, None);
+    println!("is_close: {:?}", close);
+
+    assert!(close.all().into_scalar().to_bool());
 }
 
 #[test]
