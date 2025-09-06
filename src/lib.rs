@@ -54,6 +54,7 @@ fn compare_backends<Reference: Backend, Tested: Backend>() {
 
     // be reproducible
     Reference::seed(0xd14bccffe1928888);
+    Tested::seed(0x26224a4d72c7014); // shouldn't be necessary, but what the hey
 
     const NF: usize = 3;
     let config = SimplifiedBlockConfig::new(NF);
