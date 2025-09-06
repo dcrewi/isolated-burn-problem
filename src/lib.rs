@@ -14,45 +14,35 @@ fn std_conv2d(in_f: usize, out_f: usize) -> Conv2dConfig {
 }
 
 
-/// Configuration for [ResidualDenseBlock].
+/// Configuration for [SimplifiedBlock].
 #[derive(Config, Copy, Debug)]
-pub struct ResidualDenseBlockConfig {
+pub struct SimplifiedBlockConfig {
     /// Number of feature channels
     pub nf: usize,
-    /// Growth channel, ie additional intermediate channels added during the
-    /// densely connected layers
-    pub gc: usize,
 }
 
-impl ResidualDenseBlockConfig {
-    pub fn init<B: Backend>(&self, device: &B::Device) -> ResidualDenseBlock<B> {
-        let &ResidualDenseBlockConfig { nf, gc } = self;
-        ResidualDenseBlock {
-            conv1: std_conv2d(nf, gc).init(device),
-            conv2: std_conv2d(nf + gc, nf).init(device),
+impl SimplifiedBlockConfig {
+    pub fn init<B: Backend>(&self, device: &B::Device) -> SimplifiedBlock<B> {
+        let &SimplifiedBlockConfig { nf } = self;
+        SimplifiedBlock {
+            conv1: std_conv2d(nf, nf).init(device),
             lrelu: LeakyReluConfig::new().with_negative_slope(0.2).init()
         }
     }
 }
 
 
-/// Residual dense block with five convolution layers.
-/// 
-/// See [Densely Connected Convolutional Networks (arXiv:1608.06993)](https://arxiv.org/abs/1608.06993)
 #[derive(Debug, Module)]
-pub struct ResidualDenseBlock<B: Backend> {
+pub struct SimplifiedBlock<B: Backend> {
     pub conv1: Conv2d<B>,
-    pub conv2: Conv2d<B>,
     pub lrelu: LeakyRelu
 }
 
-impl<B: Backend> ResidualDenseBlock<B> {
+impl<B: Backend> SimplifiedBlock<B> {
     pub fn forward(&self, x: Tensor<B, 4>) -> Tensor<B, 4> {
-        let x0 = x;
-        let x1 = self.lrelu.forward(self.conv1.forward(x0.clone()));
-        let x0x1 = Tensor::cat(vec![x0.clone(), x1], 1);
-        let x2 = self.conv2.forward(x0x1);
-        x2 * 0.2 + x0
+        // The problem happens with the combination of LeakyRelu and Conv2d. If
+        // I use either one alone, the test passes.
+        self.lrelu.forward(self.conv1.forward(x))
     }
 }
 
@@ -63,9 +53,9 @@ fn compare_backends<Reference: Backend, Tested: Backend>() {
     use burn::tensor::Distribution;
 
     // be reproducible
-    Reference::seed(0xd14bccffe1928d68);
+    Reference::seed(0xd14bccffe1928d69);
 
-    let config = ResidualDenseBlockConfig::new(4, 4);
+    let config = SimplifiedBlockConfig::new(4);
     let ref_device = <Reference as Backend>::Device::default();
     let ref_module = config.init::<Reference>(&ref_device);
     let test_device = <Tested as Backend>::Device::default();
@@ -74,11 +64,11 @@ fn compare_backends<Reference: Backend, Tested: Backend>() {
     // copy weights from ref_module to test_module
     let recorder = BinBytesRecorder::<FullPrecisionSettings>::new();
     let bytes = recorder.record(ref_module.clone().into_record(), ()).unwrap();
-    let record = recorder.load::<ResidualDenseBlockRecord<Tested>>(bytes, &test_device).unwrap();
+    let record = recorder.load::<SimplifiedBlockRecord<Tested>>(bytes, &test_device).unwrap();
     let test_module = test_module.load_record(record);
 
     // generate random input and run it through ref_module
-    let ref_input = Tensor::<Reference, 4>::random([2, 4, 9, 9], Distribution::Uniform(0.0, 1.0), &ref_device);
+    let ref_input = Tensor::<Reference, 4>::random([2, 4, 9, 9], Distribution::Uniform(-1.0, 1.0), &ref_device);
     let ref_output = ref_module.forward(ref_input.clone());
 
     // copy input to the test backend and run it through test_module
